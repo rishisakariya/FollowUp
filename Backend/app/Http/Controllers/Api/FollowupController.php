@@ -1,0 +1,360 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use App\Models\Followup;
+use App\Models\User;
+use App\Models\Receiver;
+
+class FollowupController extends Controller
+{
+    public function AddFollowUp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'title'        => 'required|string|max:50|min:5',
+            'description'  => 'nullable|string',
+            'status' => 'nullable|string|in:true,false',
+            'set_reminder' => 'nullable|string|in:true,false',
+            'time'         => 'nullable|date_format:H:i:s',
+            'receiver_name' => 'required|string|exists:receiver,name',
+        ], [
+            'title.required'   => 'Title is required.',
+            'title.max'        => 'Title must not exceed 50 characters.',
+            'time.date_format' => 'Time must be in the format HH:MM:SS.',
+            'receiver_name.required' => 'Receiver name is required.',
+            'receiver_name.exists'  => 'The selected receiver does not exist.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors'  => $validator->errors()
+            ], 422);
+        }
+        //Get authenticated user
+        $user = auth()->user();
+
+        // Get the receiver by name
+        $receiver = Receiver::where('name', $request->receiver_name)->first();
+
+        // Convert string to booleans with default false
+        $status = $request->has('status') ? $request->status === 'true' : false;
+        $setReminder = $request->has('set_reminder') ? $request->set_reminder === 'true' : false;
+
+        // Create followup
+        $followup = Followup::create([
+            'title'        => $request->title,
+            'creator_user_id' => auth()->user()->user_id, // Authenticated user ID
+            'creator_receiver_id' => $receiver->receiver_id,
+            'description'  => $request->description,
+            'status'       => $status,
+            'set_reminder' => $setReminder,
+            'time'         => $request->time ?? '08:00:00',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Follow-up created successfully.',
+            // 'data'=>$followup,
+            'data' => [
+                'task_id' => $followup->task_id,
+                'title' => $followup->title,
+                'description' => $followup->description,
+                'status' => $followup->status,
+                'set_reminder' => $followup->set_reminder,
+                'time' => $followup->time,
+                'creator' => $user->name,
+                'receiver' => $receiver->name
+            ],
+            // 'creator' => [
+            //     'user_id' => $user->user_id,
+            //     'name'    => $user->name
+            // ],
+            // 'receiver' => [
+            //     'receiver_id' => $receiver->receiver_id,
+            //     'name'        => $receiver->name
+            // ]
+        ], 201);
+    }
+
+    //Update FollowUP
+    // public function UpdateFollowUp(Request $request, $task_id)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'title'        => 'required|string|max:50|min:5',
+    //         'description'  => 'nullable|string',
+    //         'status' => 'nullable|string|in:true,false',
+    //         'set_reminder' => 'nullable|string|in:true,false',
+    //         'time'         => 'nullable|date_format:H:i:s',
+    //     ], [
+    //         'title.required'   => 'Title is required.',
+    //         'title.max'        => 'Title must not exceed 50 characters.',
+    //         'title.min'        => 'Title must be at least 5 characters.',
+    //         'time.date_format' => 'Time must be in the format HH:MM:SS.',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Validation failed.',
+    //             'errors'  => $validator->errors()
+    //         ], 422);
+    //     }
+
+    //     // Find the followup by task_id
+    //     $followup = Followup::find($task_id);
+
+    //     if (!$followup) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Follow-up not found.',
+    //         ], 404);
+    //     }
+
+    //     // Check if the authenticated user is the creator
+    //     if ($followup->creator !== auth()->user()->user_id) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Unauthorized to update this follow-up.',
+    //         ], 403);
+    //     }
+    //     // Convert string to booleans with default false
+    //     $status = $request->has('status') ? $request->status === 'true' : false;
+    //     $setReminder = $request->has('set_reminder') ? $request->set_reminder === 'true' : false;
+
+    //     // Update the follow-up
+    //     $followup->update([
+    //         'title'        => $request->title,
+    //         'description'  => $request->description,
+    //         'status'       => $status,
+    //         'set_reminder' => $setReminder,
+    //         'time'         => $request->time ?? '08:00:00',
+    //     ]);
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'message' => 'Follow-up updated successfully.',
+    //         'data'    => $followup,
+    //     ]);
+    // }
+
+    public function UpdateFollowUp(Request $request, $task_id)
+    {
+        $validator = Validator::make($request->all(), [
+            'title'          => 'required|string|max:50|min:5',
+            'description'    => 'nullable|string',
+            'status'         => 'nullable|string|in:true,false',
+            'set_reminder'   => 'nullable|string|in:true,false',
+            'time'           => 'nullable|date_format:H:i:s',
+            'receiver_name'  => 'required|string|exists:receiver,name',
+        ], [
+            'title.required'         => 'Title is required.',
+            'title.max'              => 'Title must not exceed 50 characters.',
+            'title.min'              => 'Title must be at least 5 characters.',
+            'time.date_format'       => 'Time must be in the format HH:MM:SS.',
+            'receiver_name.required' => 'Receiver name is required.',
+            'receiver_name.exists'   => 'The selected receiver does not exist.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors'  => $validator->errors()
+            ], 422);
+        }
+
+        // Find the follow-up by task_id
+        $followup = Followup::find($task_id);
+
+        if (!$followup) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Follow-up not found.',
+            ], 404);
+        }
+
+        // Get the authenticated user
+        $user = auth()->user();
+
+        // // Check if the authenticated user is the update
+
+        // User A created followup:
+        // If User A tries to update it → allowed.
+
+        // User B tries to update same followup:
+        // If User B logs in and tries → 403 Unauthorized.
+
+        // if ($followup->creator_user_id !== auth()->user()->user_id) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'Unauthorized to update this follow-up.',
+        //     ], 403);
+        // }
+
+        // Get the new receiver by name
+        $receiver = Receiver::where('name', $request->receiver_name)->first();
+
+        // Convert strings to booleans with default false
+        $status = $request->has('status') ? $request->status === 'true' : false;
+        $setReminder = $request->has('set_reminder') ? $request->set_reminder === 'true' : false;
+
+        // Update the follow-up
+        $followup->update([
+            'title'               => $request->title,
+            'description'         => $request->description,
+            'status'              => $status,
+            'set_reminder'        => $setReminder,
+            'time'                => $request->time ?? '08:00:00',
+            'creator_receiver_id' => $receiver->receiver_id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Follow-up updated successfully.',
+            'data' => [
+                'task_id'=>$followup->task_id,
+                'title' => $followup->title,
+                'description' => $followup->description,
+                'status' => $followup->status,
+                'set_reminder' => $followup->set_reminder,
+                'time' => $followup->time,
+                'creator' => $user->name,
+                'receiver' => $receiver->name
+            ],
+            // 'data'    => $followup,
+            // 'creator' => [
+            //     // 'user_id' => $user->user_id,
+            //     'name'    => $user->name
+            // ],
+            // 'receiver' => [
+            //     // 'receiver_id' => $receiver->receiver_id,
+            //     'name'        => $receiver->name
+            // ]
+        ], 200);
+    }
+    public function getFollowUpsByUserId($user_id)
+    {
+        // Check if user exists
+        $user = User::find($user_id);
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.'
+            ], 404);
+        }
+
+        // Retrieve follow-ups with related receiver data
+        $followups = Followup::where('creator_user_id', $user_id)
+            ->with('receiver') // eager load the receiver relationship
+            ->get();
+
+        if ($followups->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'No follow-ups found for this user.',
+                'data' => []
+            ], 200); //Empty But SuccessFully.
+        }
+
+        // Transform followups to include receiver name
+        $data = $followups->map(function ($followup) use ($user) {
+            return [
+                'task_id'       => $followup->task_id,
+                'title'         => $followup->title,
+                'description'   => $followup->description,
+                'status'        => $followup->status,
+                'set_reminder'  => $followup->set_reminder,
+                'time'          => $followup->time,
+                'creator'       => $user->name,
+                'receiver'      => optional($followup->receiver)->name ?? 'Unknown',
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Follow-ups retrieved successfully.',
+            'data'    => $data
+        ], 200);
+    }
+    public function Destroy($id)
+    {
+        $followup = Followup::find($id);
+
+        if (!$followup) {
+            return response()->json([
+                'message' => 'Follow-up not found.'
+            ], 404);
+        }
+
+        // // Check if the authenticated user is the creator
+        // if ($followup->creator_user_id !== auth()->user()->user_id) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'Unauthorized to delete this follow-up.'
+        //     ], 403);
+        // }
+
+        $followup->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Follow-up deleted successfully.'
+        ], 200);
+    }
+    public function getFollowUpsByReceiverId($receiver_id)
+    {
+        // Check if receiver exists
+        $receiver = Receiver::find($receiver_id);
+        if (!$receiver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Receiver not found.'
+            ], 404);
+        }
+
+        // Get all follow-ups by this receiver ID
+        $followups = Followup::where('creator_receiver_id', $receiver_id)->with('receiver')->get();
+
+        if ($followups->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'No follow-ups found for this receiver.',
+                'data' => []
+            ], 200); //Empty But Successfully
+        }
+
+        $data = $followups->map(function ($followup) {
+            return [
+                'task_id'      => $followup->task_id,
+                'title'        => $followup->title,
+                'description'  => $followup->description,
+                'status'       => $followup->status,
+                'set_reminder' => $followup->set_reminder,
+                'time'         => $followup->time,
+                'creator'      => optional($followup->creatorUser)->name, // null-safe
+                'receiver'     => optional($followup->receiver)->name,    // from relation
+            ];
+        });
+
+        // Return follow-ups with receiver name
+        return response()->json([
+            'success' => true,
+            'message' => 'Follow-ups retrieved successfully.',
+            'receiver' => $receiver->name,
+            'data' => $data
+        ], 200);
+    }
+}
+
+// 200 OK — For successful retrieval, updates, and deletions.
+
+// 201 Created — When a new follow-up is successfully created.
+
+// 404 Not Found — When a user, receiver, or follow-up is not found.
+
+// 422 Unprocessable Entity — For validation errors on creation or update.
