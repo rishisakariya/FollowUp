@@ -9,6 +9,9 @@ use App\Http\Controllers\Api\ReceiverController;
 // use Illuminate\Foundation\Auth\EmailVerificationRequest; // 👈 Required for email verification
 use Illuminate\Auth\Events\Verified;
 use App\Models\User;
+use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
+// use App\Http\Controllers\Auth\ResetPasswordController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -76,8 +79,8 @@ Route::get('/email/is-verified', function (Request $request) {
 
 // Route::group(['middleware' => "auth:sanctum"], function () {
 // ✅ Protected Routes (only for authenticated & verified users)
-Route::middleware(['auth:sanctum', 'verified'])->group(function () {
-    // Route::middleware(['auth:sanctum'])->group(function () {
+// Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/profile', [UserController::class, 'profile'])->name('profile');
     // Route::get('/users', [UserController::class, 'AllUsers']);
     Route::get('/user/{user_id}', [UserController::class, 'getUserById'])->name('userbyid');
@@ -100,3 +103,21 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 
 //error handle like no user found
 // Route::get('/Login', [UserController::class, 'Login'])->name('login');
+
+
+
+
+Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('forgotpassword');
+Route::get('/reset-password-form/{token}', function ($token) {
+    // return view('auth.reset-password', ['token' => $token]);
+})->name('password.reset');
+
+// Route::get('/reset-password-form/{token}', function ($token, Request $request) {
+//     $email = $request->query('email');
+
+//     // Change to your actual frontend URL
+//     return redirect()->away("https://your-frontend.com/reset-password?token={$token}&email={$email}");
+// })->name('password.reset');
+
+
+Route::post('/reset-password', [ResetPasswordController::class, 'reset'])->name('resetpassword');
