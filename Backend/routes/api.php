@@ -107,17 +107,21 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
 
 
-Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('forgotpassword');
-Route::get('/reset-password-form/{token}', function ($token) {
-    // return view('auth.reset-password', ['token' => $token]);
-})->name('password.reset');
-
-// Route::get('/reset-password-form/{token}', function ($token, Request $request) {
-//     $email = $request->query('email');
-
-//     // Change to your actual frontend URL
-//     return redirect()->away("https://your-frontend.com/reset-password?token={$token}&email={$email}");
+// Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('forgotpassword');
+// Route::get('/reset-password-form/{token}', function ($token) {
+//     // return view('auth.reset-password', ['token' => $token]);
 // })->name('password.reset');
 
+// // Route::get('/reset-password-form/{token}', function ($token, Request $request) {
+// //     $email = $request->query('email');
 
-Route::post('/reset-password', [ResetPasswordController::class, 'reset'])->name('resetpassword');
+// //     // Change to your actual frontend URL
+// //     return redirect()->away("https://your-frontend.com/reset-password?token={$token}&email={$email}");
+// // })->name('password.reset');
+
+
+// Route::post('/reset-password', [ResetPasswordController::class, 'reset'])->name('resetpassword');
+
+Route::post('/forgot-password', [ForgotPasswordController::class, 'sendOTP'])->middleware('throttle:2,1')->name('forgotpassword'); // ⬅️ 2 attempts per minute;
+Route::post('/verify-otp', [ForgotPasswordController::class, 'verifyOTP'])->name('verifyotp');
+Route::post('/reset-password', [ForgotPasswordController::class, 'resetPassword'])->name('resetpassword');

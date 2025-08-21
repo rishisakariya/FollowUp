@@ -156,250 +156,6 @@ Authorization: Bearer <token>
 
 
 
-Perfect Forgot & Reset Password Workflow (Laravel + React Native)
-1. User Initiates "Forgot Password"
-
-User opens the Forgot Password screen in the React Native app.
-
-User enters their registered email address and submits.
-
-2. React Native Sends Forgot Password Request
-
-The app sends a POST request to Laravel backend API /forgot-password with the user’s email.
-
-Backend validates the email exists.
-
-Backend generates a unique, secure token for password reset.
-
-Backend stores the token (hashed) with expiry in database (default 60 minutes).
-
-Backend sends an email to the user containing a password reset link with the token and email as URL parameters.
-
-3. User Receives Reset Email
-
-User checks their email inbox.
-
-User clicks the password reset link.
-
-The link contains a token and the email as query parameters.
-
-This opens either:
-
-A web page (if web app)
-
-Or is intercepted by React Native app through deep linking or universal linking.
-
-4. React Native Opens Reset Password Screen
-
-The app captures the token and email from the link.
-
-It navigates user to a Reset Password screen.
-
-The screen has fields:
-
-New Password
-
-Confirm Password
-
-5. User Enters New Password & Submits
-
-User inputs new password and confirmation.
-
-User submits the form.
-
-React Native app sends a POST request to backend /reset-password API with:
-
-Email
-
-Token
-
-New Password
-
-Password Confirmation
-
-6. Laravel Validates & Processes Reset
-
-Backend verifies:
-
-Token exists and is valid (matches email, not expired).
-
-Password and confirmation match and meet security rules.
-
-If valid:
-
-Backend hashes new password.
-
-Updates the user’s password in the database.
-
-Deletes/invalidates the token to prevent reuse.
-
-Returns a success response.
-
-7. React Native Receives Response
-
-If success:
-
-Shows a success message ("Password reset successful").
-
-Optionally navigates user to login screen.
-
-If failure (invalid token, expired token, validation errors):
-
-Shows appropriate error messages.
-
-Optionally suggests requesting a new reset link.
-
-8. Security Considerations Throughout
-
-Tokens expire after a short period (e.g., 60 minutes).
-
-Tokens are single-use.
-
-Passwords are validated with strong rules.
-
-Passwords stored hashed using secure algorithms.
-
-API responses avoid leaking whether an email exists.
-
-
-
-Summary Flowchart (Conceptual)
-
-User requests reset →
-
-Backend generates token + emails link →
-
-User clicks link → React Native app captures token/email →
-
-User submits new password → Backend validates + updates password →
-
-Backend responds → React Native shows success or error
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-🔐 FORGOT & RESET PASSWORD WORKFLOW
-📱 Frontend (React Native) + 🖥️ Backend (Laravel API)
-🔁 Step 1: User Requests Password Reset
-🧑‍💻 Frontend:
-
-Shows "Forgot Password" screen with an email input.
-
-User enters their email and taps “Send Reset Link”.
-
-Sends a POST request to backend API.
-
-🧰 Backend:
-
-Validates the email.
-
-If valid, generates a secure token.
-
-Stores token in the password resets table.
-
-Sends an email to the user with a special reset link containing:
-
-The token
-
-The user’s email
-
-This link points to a backend route that redirects to your frontend app.
-
-📩 Step 2: User Clicks Email Link
-📧 Email:
-
-The reset link looks like:
-
-https://your-backend.com/reset-password-form/{token}?email=user@example.com
-
-🖥️ Backend:
-
-The route that handles this URL:
-
-Reads the token and email.
-
-Redirects the user to your frontend app’s reset password screen.
-
-Example redirect URL:
-
-https://your-frontend.com/reset-password?token=xxx&email=user@example.com
-
-🧭 Step 3: Frontend Shows Reset Password Screen
-📱 Frontend:
-
-Receives the token and email via the URL.
-
-Displays a form with:
-
-New password
-
-Confirm password
-
-On submit, sends a POST request to the backend with:
-
-email
-
-token
-
-new password
-
-confirm password
-
-🔐 Step 4: Backend Resets the Password
-🧰 Backend:
-
-Validates the request:
-
-Checks token, email, password rules.
-
-If valid:
-
-Updates the password in the users table.
-
-Deletes the used token.
-
-Responds with a success message.
-
-✅ Step 5: Frontend Shows Success Message
-📱 Frontend:
-
-Shows confirmation to user: “Password changed successfully.”
-
-Optionally navigates user to login screen.
-
-📦 Summary of Responsibilities:
-| Task                     | Frontend (React Native) | Backend (Laravel)          |
-| ------------------------ | ----------------------- | -------------------------- |
-| Forgot password screen   | ✅                       | ❌                          |
-| Send request with email  | ✅                       | ✅ Validate, generate token |
-| Send reset email         | ❌                       | ✅ With redirect link       |
-| Handle email link        | ❌                       | ✅ Redirect to frontend     |
-| Show reset password form | ✅                       | ❌                          |
-| Submit new password      | ✅                       | ✅ Validate and reset       |
-| Confirm success          | ✅                       | ✅ Respond success          |
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1294,17 +1050,341 @@ http://127.0.0.1:8000/api/email/verify/16/{hash}?expires=...&signature=...
 
 
 
-🧠 Summary: Full Workflow Diagram For ForgetPassword
-[Client sends POST /api/forgot-password with email]
-                ↓
-      [Laravel validates email]
-                ↓
-[Laravel generates token + stores in password_resets table]
-                ↓
-      [Laravel sends email with reset link]
-                ↓
-     [User clicks link → opens frontend reset page]
-                ↓
-[Client sends POST /api/reset-password with token + new password]
-                ↓
-    [Laravel verifies token → updates password → done!]
+
+
+
+To implement OTP + token approach, here’s exactly what you need to change in your migration and controller:
+
+1️⃣ Migration update
+
+Currently, your migration stores only email, otp, timestamps:
+
+Schema::create('password_resets', function (Blueprint $table) {
+    $table->string('email')->index();
+    $table->string('otp');
+    $table->timestamp('created_at')->nullable();
+    $table->timestamp('expires_at')->nullable();
+});
+
+
+Change it to add a unique token and an is_verified flag:
+
+Schema::create('password_resets', function (Blueprint $table) {
+    $table->id();
+    $table->string('email')->index();
+    $table->string('token')->unique();
+    $table->string('otp');
+    $table->timestamp('expires_at')->nullable();
+    $table->boolean('is_verified')->default(false);
+    $table->timestamps();
+});
+
+
+Added token (unique string, used to identify this reset attempt)
+
+Added is_verified boolean to track if OTP verified
+
+Added id and timestamps for better handling
+
+2️⃣ Controller changes
+
+Your controller currently requires email + otp on verify/reset. With token, your verifyOTP and resetPassword APIs will only receive token + otp (or just token in reset step if OTP verified already).
+
+Here’s what to update in your controller for OTP + token flow:
+A. sendOTP
+
+Generate token (secure random string)
+
+Save email, token, otp, expires_at, is_verified=false
+
+Return token in response (this token will be sent by frontend to verify/reset)
+
+Send OTP to email as usual (no change)
+
+public function sendOTP(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'email' => 'required|email|exists:users,email',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed.',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    $otp = rand(100000, 999999); // 6-digit OTP
+    $token = bin2hex(random_bytes(16)); // 32 char secure token
+
+    DB::table('password_resets')->updateOrInsert(
+        ['email' => $request->email],
+        [
+            'otp' => $otp,
+            'token' => $token,
+            'expires_at' => Carbon::now()->addMinutes(2),
+            'is_verified' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]
+    );
+
+    // Send OTP via email (your existing mail code)...
+
+    return response()->json([
+        'success' => true,
+        'message' => 'OTP sent successfully to your email.',
+        'token' => $token, // frontend needs this for next steps
+    ], 200);
+}
+
+B. verifyOTP
+
+Input: token + otp
+
+Validate token exists, check OTP matches & not expired
+
+Set is_verified = true if valid
+
+Return success or failure
+
+public function verifyOTP(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'token' => 'required|string|exists:password_resets,token',
+        'otp'   => 'required|digits:6',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed.',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    $resetEntry = DB::table('password_resets')->where('token', $request->token)->first();
+
+    if (!$resetEntry) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Invalid token.'
+        ], 400);
+    }
+
+    if (Carbon::now()->greaterThan(Carbon::parse($resetEntry->expires_at))) {
+        return response()->json([
+            'success' => false,
+            'message' => 'OTP has expired.'
+        ], 410);
+    }
+
+    if ($resetEntry->otp !== $request->otp) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Invalid OTP.'
+        ], 400);
+    }
+
+    DB::table('password_resets')->where('token', $request->token)->update(['is_verified' => true]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'OTP verified successfully.'
+    ], 200);
+}
+
+C. resetPassword
+
+Input: token + new password + confirm password
+
+Check token exists and is_verified == true
+
+Check token not expired
+
+Update user password
+
+Delete password reset entry to clean up
+
+public function resetPassword(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'token' => 'required|string|exists:password_resets,token',
+        'password' => [
+            'required',
+            'string',
+            'min:8',
+            'same:confirm_password',
+            'regex:/[a-z]/',
+            'regex:/[A-Z]/',
+            'regex:/[0-9]/',
+            'regex:/[@$!%*#?&]/',
+        ],
+        'confirm_password' => 'required|string|min:6|max:20',
+    ], [
+        'password.required' => 'Password is required.',
+        'password.min' => 'Password must be at least 8 characters.',
+        'password.same' => 'Password and Confirm Password must match.',
+        'password.regex' => 'Password must include uppercase, lowercase, number, and special character.',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed.',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    $resetEntry = DB::table('password_resets')->where('token', $request->token)->first();
+
+    if (!$resetEntry) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Invalid token.'
+        ], 400);
+    }
+
+    if (!$resetEntry->is_verified) {
+        return response()->json([
+            'success' => false,
+            'message' => 'OTP not verified.'
+        ], 403);
+    }
+
+    if (Carbon::now()->greaterThan(Carbon::parse($resetEntry->expires_at))) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Token has expired.'
+        ], 410);
+    }
+
+    $user = User::where('email', $resetEntry->email)->first();
+    $user->password = Hash::make($request->password);
+    $user->save();
+
+    DB::table('password_resets')->where('token', $request->token)->delete();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Password reset successful.'
+    ], 200);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Great! Here's how you can log every API request in Laravel — including:
+
+IP address
+
+HTTP method
+
+Route (URL)
+
+Request body
+
+Authenticated user (if any)
+
+✅ Step-by-Step: Log Every API Request in Laravel
+🔹 1. Create a Middleware
+
+Run this command to create a middleware:
+
+php artisan make:middleware LogApiRequests
+
+🔹 2. Update the Middleware Logic
+
+Open app/Http/Middleware/LogApiRequests.php and add:
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+
+class LogApiRequests
+{
+    public function handle(Request $request, Closure $next)
+    {
+        Log::info('API Request', [
+            'ip' => $request->ip(),
+            'method' => $request->method(),
+            'url' => $request->fullUrl(),
+            'body' => $request->except(['password', 'confirm_password']), // Exclude sensitive data
+            'user_id' => optional($request->user())->id,
+            'user_email' => optional($request->user())->email,
+            'timestamp' => now()->toDateTimeString(),
+        ]);
+
+        return $next($request);
+    }
+}
+
+🔹 3. Register Middleware in Kernel
+
+Open app/Http/Kernel.php and register it under the api group:
+
+protected $middlewareGroups = [
+    'api' => [
+        // Other middleware...
+        \App\Http\Middleware\LogApiRequests::class,
+    ],
+];
+
+
+Now this middleware will run for every API request.
+
+📂 4. Check Logs
+
+After any API request, check the log:
+
+tail -f storage/logs/laravel.log
+
+
+Example log output:
+
+[2025-08-20 14:22:10] local.INFO: API Request {
+    "ip":"127.0.0.1",
+    "method":"POST",
+    "url":"http://127.0.0.1:8000/api/login",
+    "body":{"email":"test@example.com"},
+    "user_id":1,
+    "user_email":"test@example.com",
+    "timestamp":"2025-08-20 14:22:10"
+}
+
+✅ Benefits
+
+Works automatically for all APIs
+
+Tracks who accessed what and when
+
+Helps you debug request data
