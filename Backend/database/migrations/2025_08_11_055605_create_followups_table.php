@@ -18,7 +18,8 @@ return new class extends Migration
             $table->unsignedBigInteger('creator_user_id')->nullable(); // FK to users.user_id
             $table->unsignedBigInteger('creator_receiver_id')->nullable(); // FK to receivers.receiver_id
             $table->text('description')->nullable();
-            $table->boolean('status')->default(false); // default false
+            $table->string('status')->default('Pending');
+            $table->date('date'); //Date
             $table->boolean('set_reminder')->default(false); // default false
             $table->time('time')->default('08:00:00'); // default time
 
@@ -26,7 +27,7 @@ return new class extends Migration
             $table->foreign('creator_user_id')->references('user_id')->on('users')->onDelete('cascade');
             $table->foreign('creator_receiver_id')->references('receiver_id')->on('receiver')->onDelete('cascade');
         });
-    }   
+    }
 
     /**
      * Reverse the migrations.

@@ -16,6 +16,7 @@ class Followup extends Model
         'creator_receiver_id',
         'description',
         'status',
+        'date',
         'set_reminder',
         'time',
     ];

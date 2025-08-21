@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Validator;
 use App\Models\Followup;
 use App\Models\User;
 use App\Models\Receiver;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 class FollowupController extends Controller
 {
@@ -16,7 +18,8 @@ class FollowupController extends Controller
         $validator = Validator::make($request->all(), [
             'title'        => 'required|string|max:50|min:5',
             'description'  => 'nullable|string',
-            'status' => 'nullable|string|in:true,false',
+            'status' => 'nullable|string|in:Pending,InProgress,Completed,Cancelled',
+            'date' => 'required|date|after_or_equal:today',
             'set_reminder' => 'nullable|string|in:true,false',
             'time'         => 'nullable|date_format:H:i:s',
             'receiver_name' => 'required|string|exists:receiver,name',
@@ -42,7 +45,7 @@ class FollowupController extends Controller
         $receiver = Receiver::where('name', $request->receiver_name)->first();
 
         // Convert string to booleans with default false
-        $status = $request->has('status') ? $request->status === 'true' : false;
+        $status = $request->status ?? 'Pending'; // Default to Pending if not provided
         $setReminder = $request->has('set_reminder') ? $request->set_reminder === 'true' : false;
 
         // Create followup
@@ -52,6 +55,7 @@ class FollowupController extends Controller
             'creator_receiver_id' => $receiver->receiver_id,
             'description'  => $request->description,
             'status'       => $status,
+            'date'         => $request->date,
             'set_reminder' => $setReminder,
             'time'         => $request->time ?? '08:00:00',
         ]);
@@ -65,6 +69,7 @@ class FollowupController extends Controller
                 'title' => $followup->title,
                 'description' => $followup->description,
                 'status' => $followup->status,
+                'date'   => $followup->date,
                 'set_reminder' => $followup->set_reminder,
                 'time' => $followup->time,
                 'creator' => $user->name,
@@ -147,7 +152,8 @@ class FollowupController extends Controller
         $validator = Validator::make($request->all(), [
             'title'          => 'required|string|max:50|min:5',
             'description'    => 'nullable|string',
-            'status'         => 'nullable|string|in:true,false',
+            'status' => 'nullable|string|in:Pending,InProgress,Completed,Cancelled',
+            'date' => 'required|date|after_or_equal:today',
             'set_reminder'   => 'nullable|string|in:true,false',
             'time'           => 'nullable|date_format:H:i:s',
             'receiver_name'  => 'required|string|exists:receiver,name',
@@ -200,7 +206,7 @@ class FollowupController extends Controller
         $receiver = Receiver::where('name', $request->receiver_name)->first();
 
         // Convert strings to booleans with default false
-        $status = $request->has('status') ? $request->status === 'true' : false;
+        $status = $request->status ?? $followup->status; // Keep old status if not changed
         $setReminder = $request->has('set_reminder') ? $request->set_reminder === 'true' : false;
 
         // Update the follow-up
@@ -208,6 +214,7 @@ class FollowupController extends Controller
             'title'               => $request->title,
             'description'         => $request->description,
             'status'              => $status,
+            'date'                => $request->date,
             'set_reminder'        => $setReminder,
             'time'                => $request->time ?? '08:00:00',
             'creator_receiver_id' => $receiver->receiver_id,
@@ -217,10 +224,11 @@ class FollowupController extends Controller
             'success' => true,
             'message' => 'Follow-up updated successfully.',
             'data' => [
-                'task_id'=>$followup->task_id,
+                'task_id' => $followup->task_id,
                 'title' => $followup->title,
                 'description' => $followup->description,
                 'status' => $followup->status,
+                'date' => $followup->date,
                 'set_reminder' => $followup->set_reminder,
                 'time' => $followup->time,
                 'creator' => $user->name,
@@ -268,6 +276,7 @@ class FollowupController extends Controller
                 'title'         => $followup->title,
                 'description'   => $followup->description,
                 'status'        => $followup->status,
+                'date'          => $followup->date,
                 'set_reminder'  => $followup->set_reminder,
                 'time'          => $followup->time,
                 'creator'       => $user->name,
@@ -348,6 +357,51 @@ class FollowupController extends Controller
             'receiver' => $receiver->name,
             'data' => $data
         ], 200);
+    }
+
+
+
+    public function getMonthlyFollowups(Request $request)
+    {
+        $user = auth()->user();
+
+        $month = $request->input('month'); // Example: 08
+        $year = $request->input('year');   // Example: 2025
+
+        if (!$month || !$year) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Month and year are required.'
+            ], 400);
+        }
+
+        $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+        $endDate = Carbon::createFromDate($year, $month, 1)->endOfMonth();
+
+        // Fetch all followups in month
+        $followups = Followup::where('creator_user_id', $user->user_id)
+            ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get()
+            ->groupBy('date');
+
+        $daysInMonth = $startDate->daysInMonth;
+        $calendar = [];
+
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $date = Carbon::createFromDate($year, $month, $day)->toDateString();
+
+            $calendar[] = [
+                'date' => $date,
+                'count' => isset($followups[$date]) ? $followups[$date]->count() : 0
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            // 'month' => $month,
+            // 'year' => $year,
+            'data' => $calendar
+        ]);
     }
 }
 

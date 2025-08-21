@@ -93,6 +93,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/followups/user/{user_id}', [FollowupController::class, 'getFollowUpsByUserId'])->name('followupbyuserid');
     Route::delete('/followup/destroy/{id}', [FollowupController::class, 'Destroy'])->name('followupdelete');
     Route::get('/followups/receiver/{receiver_id}', [FollowupController::class, 'getFollowUpsByReceiverId'])->name('followpbyreceiverid');
+    Route::get('/calendar/monthly-followups', [FollowupController::class, 'getMonthlyFollowups'])->name('monthlyfollowupcount');
+
 
     Route::post('/addreceivers', [ReceiverController::class, 'AddReceiver'])->name('addreceiver');
     Route::put('/receiver/update/{receiver_id}', [ReceiverController::class, 'UpdateReceiver'])->name('updatereceiver');
