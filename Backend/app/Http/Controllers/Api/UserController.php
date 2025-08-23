@@ -67,7 +67,7 @@ class UserController extends Controller
         ]);
 
         // Fire the Registered event to send verification email
-        event(new Registered($user));
+        // event(new Registered($user));
         // Create token for API authentication
         // $token = $user->createToken('register_token')->plainTextToken;
 
@@ -119,12 +119,12 @@ class UserController extends Controller
         }
 
         // Check if email is verified
-        if (!$user->hasVerifiedEmail()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Please verify your email before logging in.',
-            ], 403); // Forbidden
-        }
+        // if (!$user->hasVerifiedEmail()) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'Please verify your email before logging in.',
+        //     ], 403); // Forbidden
+        // }
 
         // Create Sanctum token
         $token = $user->createToken('login_token')->plainTextToken;
@@ -270,31 +270,31 @@ class UserController extends Controller
     /**
      * Send email verification link to the authenticated user.
      */
-    public function sendVerificationEmail(Request $request)
-    {
-        if ($request->user()->hasVerifiedEmail()) {
-            return response()->json(['message' => 'Email already verified.'], 200);
-        }
+    // public function sendVerificationEmail(Request $request)
+    // {
+    //     if ($request->user()->hasVerifiedEmail()) {
+    //         return response()->json(['message' => 'Email already verified.'], 200);
+    //     }
 
-        $request->user()->sendEmailVerificationNotification();
+    //     $request->user()->sendEmailVerificationNotification();
 
-        return response()->json(['message' => 'Verification link sent!'], 200);
-    }
+    //     return response()->json(['message' => 'Verification link sent!'], 200);
+    // }
 
 
-    public function logout(Request $request)
-    {
-        // But this deletes all tokens the user has — web, mobile, etc.
-        // $request->user()->tokens()->delete();
+    // public function logout(Request $request)
+    // {
+    //     // But this deletes all tokens the user has — web, mobile, etc.
+    //     // $request->user()->tokens()->delete();
 
-        // Delete only the token that was used for this request (current device)
-        $request->user()->currentAccessToken()->delete();
+    //     // Delete only the token that was used for this request (current device)
+    //     $request->user()->currentAccessToken()->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Logged out successfully.',
-        ]);
-    }
+    //     return response()->json([
+    //         'success' => true,
+    //         'message' => 'Logged out successfully.',
+    //     ]);
+    // }
 }
 
 

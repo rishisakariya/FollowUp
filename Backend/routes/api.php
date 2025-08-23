@@ -30,51 +30,51 @@ use App\Http\Controllers\Auth\ForgotPasswordController;
 Route::post('/signup', [UserController::class, 'SignUp'])->name('signup');
 Route::post('/login', [UserController::class, 'Login'])->name('login');
 
-// 📧 Email Verification Routes
+// // 📧 Email Verification Routes
 
-// ✅ Send verification email using UserController method
-Route::post('/email/verify/send', [UserController::class, 'sendVerificationEmail'])->middleware(['auth:sanctum'])->name('verification.send');
+// // ✅ Send verification email using UserController method
+// Route::post('/email/verify/send', [UserController::class, 'sendVerificationEmail'])->middleware(['auth:sanctum'])->name('verification.send');
 
-// ✅ Handle verification link
-// Route::get(...): Defines a GET route (used when clicking the verification link).
-// '/email/verify/{id}/{hash}': Dynamic URL with id (user ID) and hash (a hash of the user's email).
-// function (Request $request, $id, $hash): Inline closure to handle the route.
-Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
+// // ✅ Handle verification link
+// // Route::get(...): Defines a GET route (used when clicking the verification link).
+// // '/email/verify/{id}/{hash}': Dynamic URL with id (user ID) and hash (a hash of the user's email).
+// // function (Request $request, $id, $hash): Inline closure to handle the route.
+// Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
 
-    // Retrieves the user by ID.
-    // If not found, Laravel throws a 404 error.
-    $user = User::findOrFail($id);
+//     // Retrieves the user by ID.
+//     // If not found, Laravel throws a 404 error.
+//     $user = User::findOrFail($id);
 
-    // Verifies the integrity of the link by checking if the hash from the URL matches the sha1 hash of the user's email.
-    // Uses hash_equals to prevent timing attacks.
-    // If mismatched, returns a 403 "Invalid verification link".
-    if (! hash_equals(sha1($user->email), $hash)) {
-        return response()->json(['message' => 'Invalid verification link.'], 403);
-    }
+//     // Verifies the integrity of the link by checking if the hash from the URL matches the sha1 hash of the user's email.
+//     // Uses hash_equals to prevent timing attacks.
+//     // If mismatched, returns a 403 "Invalid verification link".
+//     if (! hash_equals(sha1($user->email), $hash)) {
+//         return response()->json(['message' => 'Invalid verification link.'], 403);
+//     }
 
-    // Checks if the user already verified their email.
-    // If yes, responds with a simple message.
-    if ($user->hasVerifiedEmail()) {
-        return response()->json(['message' => 'Email already verified.']);
-    }
+//     // Checks if the user already verified their email.
+//     // If yes, responds with a simple message.
+//     if ($user->hasVerifiedEmail()) {
+//         return response()->json(['message' => 'Email already verified.']);
+//     }
 
-    // Marks the email as verified in the database (typically updates email_verified_at timestamp).
-    $user->markEmailAsVerified();
+//     // Marks the email as verified in the database (typically updates email_verified_at timestamp).
+//     $user->markEmailAsVerified();
 
-    // Fires the Verified event (used by Laravel to handle any post-verification actions like logging or notifications).
-    event(new Verified($user));
+//     // Fires the Verified event (used by Laravel to handle any post-verification actions like logging or notifications).
+//     event(new Verified($user));
 
-    // ->middleware(['signed']): Ensures the verification link hasn't been tampered with (Laravel’s signed route validation).
-    return response()->json(['message' => 'Email verified successfully.']);
-})->middleware(['signed'])->name('verification.verify');
+//     // ->middleware(['signed']): Ensures the verification link hasn't been tampered with (Laravel’s signed route validation).
+//     return response()->json(['message' => 'Email verified successfully.']);
+// })->middleware(['signed'])->name('verification.verify');
 
-// ✅ Check verification status
-// Defines a GET route to check if the authenticated user's email is verified.
-Route::get('/email/is-verified', function (Request $request) {
+// // ✅ Check verification status
+// // Defines a GET route to check if the authenticated user's email is verified.
+// Route::get('/email/is-verified', function (Request $request) {
 
-    // Returns JSON with true or false based on verification status.
-    return response()->json(['verified' => $request->user()->hasVerifiedEmail()]);
-})->middleware(['auth:sanctum']);
+//     // Returns JSON with true or false based on verification status.
+//     return response()->json(['verified' => $request->user()->hasVerifiedEmail()]);
+// })->middleware(['auth:sanctum']);
 
 
 // Route::group(['middleware' => "auth:sanctum"], function () {
