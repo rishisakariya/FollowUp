@@ -127,6 +127,12 @@ class UserController extends Controller
         // }
 
         // Create Sanctum token
+        // if ($user->role === 'super_admin') {
+        //     $token = $user->createToken('super_admin_token', ['delete-followup'])->plainTextToken;   //createToken('TokenName',['Abilities'])
+        // } else {
+        //     $token = $user->createToken('normal_admin_token', ['view-followup'])->plainTextToken;
+        // }
+
         $token = $user->createToken('login_token')->plainTextToken;
 
         // Return success response with token and user data

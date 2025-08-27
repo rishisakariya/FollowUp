@@ -127,3 +127,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 Route::post('/forgot-password', [ForgotPasswordController::class, 'sendOTP'])->middleware('throttle:2,1')->name('forgotpassword'); // ⬅️ 2 attempts per minute;
 Route::post('/verify-otp', [ForgotPasswordController::class, 'verifyOTP'])->name('verifyotp');
 Route::post('/reset-password', [ForgotPasswordController::class, 'resetPassword'])->name('resetpassword');
+
+
+use App\Http\Controllers\FollowUpReportController;
+
+Route::get('/export/save-summary', [FollowUpReportController::class, 'saveFullFollowupsWithSummary']);

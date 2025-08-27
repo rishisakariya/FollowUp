@@ -40,6 +40,7 @@ class Kernel extends HttpKernel
 
         // Applies the ThrottleRequests middleware using a preset named api.
         'api' => [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             'throttle:api',
             //Allows route parameters (like {user} or {id}) to be automatically converted into Eloquent models.
             // With this middleware, Laravel automatically fetches the User model with ID 123 and injects it into the route.
