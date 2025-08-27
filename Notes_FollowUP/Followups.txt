@@ -557,6 +557,10 @@ More secure by default
 6|tkiSdSv3Txmqd5aIvXfozu4zaj02DfBexYkLpjS5ed4de8fa
 
 
+23|bw6eEostTddcmFK0c2JjHaaPsLLMZCjOlABIXdBsdc961178
+24|Dm0bWmVe5fF0d7pGsbgRRGk251L4Q7RS4lsjCmVX29efa549
+
+
 
 followup by user id
 
@@ -1388,3 +1392,19 @@ Works automatically for all APIs
 Tracks who accessed what and when
 
 Helps you debug request data
+
+
+
+
+
+
+
+
+
+
+| Date    | Action                     | last\_used\_at | Expires At |
+| ------- | -------------------------- | -------------- | ---------- |
+| Sept 1  | Login                      | Sept 1         | Sept 16    |
+| Sept 10 | Uses app                   | Sept 10        | Sept 25    |
+| Sept 24 | Uses app                   | Sept 24        | Oct 9      |
+| Oct 10  | No request → token expired | —              | —          |
