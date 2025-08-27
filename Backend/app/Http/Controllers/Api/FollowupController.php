@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Followup;
@@ -13,6 +14,7 @@ use Illuminate\Support\Collection;
 
 class FollowupController extends Controller
 {
+    use LogsActivity;
     public function AddFollowUp(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -219,6 +221,7 @@ class FollowupController extends Controller
             'time'                => $request->time ?? '08:00:00',
             'creator_receiver_id' => $receiver->receiver_id,
         ]);
+        $this->logActivity('FollowUp was Updated.');
 
         return response()->json([
             'success' => true,

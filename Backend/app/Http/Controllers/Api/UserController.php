@@ -8,12 +8,13 @@ use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\User;
+use App\Traits\LogsActivity;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Auth\Events\Registered; // <-- Make sure this is imported
 
 class UserController extends Controller
 {
-    use AuthorizesRequests, ValidatesRequests;
+    use AuthorizesRequests, ValidatesRequests, LogsActivity;
     public function profile(Request $request)
     {
         // Return authenticated user details
