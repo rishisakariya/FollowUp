@@ -379,128 +379,6 @@ Step	What to Do
 
 
 
-but how to automatically logout in 15 days means login time to 15 days after that destroy token automatically
-
-ChatGPT said:
-Great — you're asking how to make Laravel Sanctum tokens expire automatically after 15 days, so that a user is logged out automatically after that time.
-
-By default, Sanctum tokens do not expire unless you revoke or delete them manually.
-
-✅ Goal
-You want:
-
-"After a user logs in, the token should automatically expire after 15 days."
-
-🔧 How to implement token expiry in Laravel Sanctum
-Laravel Sanctum doesn't support token expiration out-of-the-box, so you'll need to manually handle it by:
-
-✅ Step 1: Store the token's created time
-This is already done for you.
-
-Each token is stored in the personal_access_tokens table and has a created_at timestamp.
-
-✅ Step 2: Manually check token age in a custom middleware
-You need to:
-
-Create a middleware to check if the token is older than 15 days.
-
-Apply it to routes where you want token expiry to be enforced.
-
-✅ Step 3: Create middleware to check expiry
-Run this command:
-
-bash
-Copy
-Edit
-php artisan make:middleware TokenExpiryMiddleware
-Then open:
-📄 app/Http/Middleware/TokenExpiryMiddleware.php
-
-And add:
-
-php
-Copy
-Edit
-namespace App\Http\Middleware;
-
-use Closure;
-use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-
-class TokenExpiryMiddleware
-{
-    public function handle(Request $request, Closure $next)
-    {
-        $token = $request->user()?->currentAccessToken();
-
-        if (!$token) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized. Token not found.',
-            ], 401);
-        }
-
-        // Check if token is older than 15 days
-        $createdAt = $token->created_at;
-        $expiresAt = $createdAt->copy()->addDays(15);
-
-        if (now()->greaterThan($expiresAt)) {
-            // Optionally delete the expired token
-            $token->delete();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Token expired. Please log in again.',
-            ], 401);
-        }
-
-        return $next($request);
-    }
-}
-✅ Step 4: Register the middleware
-Open:
-📄 app/Http/Kernel.php
-
-In the protected $middlewareAliases array, add:
-
-php
-Copy
-Edit
-'token.expiry' => \App\Http\Middleware\TokenExpiryMiddleware::class,
-✅ Step 5: Apply middleware to protected routes
-In routes/api.php, use both auth:sanctum and your new middleware:
-
-php
-Copy
-Edit
-Route::middleware(['auth:sanctum', 'token.expiry'])->group(function () {
-    Route::get('/profile', [UserController::class, 'profile']);
-    // other protected routes
-});
-✅ How it works
-On each request, it checks if the token is older than 15 days.
-
-If yes → deletes the token and returns an error response.
-
-If no → allows access.
-
-🧪 Example Expiry Test
-If user logs in on 2025-08-01, and makes a request on 2025-08-17, they will see:
-
-json
-Copy
-Edit
-{
-  "success": false,
-  "message": "Token expired. Please log in again."
-}
-✅ Bonus (Optional)
-You can also set expiration dynamically or include an expires_at field in the personal_access_tokens table if you want finer control.
-
-Let me know if you want that version too.
-
-
-
 
 
 
@@ -1408,3 +1286,130 @@ Helps you debug request data
 | Sept 10 | Uses app                   | Sept 10        | Sept 25    |
 | Sept 24 | Uses app                   | Sept 24        | Oct 9      |
 | Oct 10  | No request → token expired | —              | —          |
+
+
+
+
+
+
+
+
+
+
+
+
+Step-by-step: Auto delete expired tokens using Laravel Command & Scheduler
+Step 1: Create a Laravel Command
+
+Run this artisan command to generate a new command:
+
+php artisan make:command DeleteExpiredTokens
+
+Step 2: Implement the logic inside the command
+
+Open the new command file created at:
+
+app/Console/Commands/DeleteExpiredTokens.php
+
+Replace the content of the handle method with:
+
+<?php
+
+namespace App\Console\Commands;
+
+use Illuminate\Console\Command;
+use Laravel\Sanctum\PersonalAccessToken;
+use Carbon\Carbon;
+
+class DeleteExpiredTokens extends Command
+{
+    protected $signature = 'tokens:delete-expired';
+    protected $description = 'Delete Sanctum tokens that have expired (last_used_at or created_at > 15 days ago)';
+
+    public function handle()
+    {
+        $expirationDate = Carbon::now()->subDays(15);
+
+        // Delete tokens where last_used_at or created_at is older than expirationDate
+        $deleted = PersonalAccessToken::where(function ($query) use ($expirationDate) {
+            $query->where('last_used_at', '<', $expirationDate)
+                  ->orWhereNull('last_used_at'); // If last_used_at is null, check created_at
+        })->where('created_at', '<', $expirationDate)
+          ->delete();
+
+        $this->info("Deleted {$deleted} expired tokens.");
+
+        return 0;
+    }
+}
+
+Step 3: Register the command in app/Console/Kernel.php
+
+In app/Console/Kernel.php add your command to the $commands array:
+
+protected $commands = [
+    Commands\DeleteExpiredTokens::class,
+];
+
+Step 4: Schedule the command
+
+Still in app/Console/Kernel.php, in the schedule method, add this to run daily (you can adjust frequency):
+
+protected function schedule(Schedule $schedule)
+{
+    $schedule->command('tokens:delete-expired')->daily();
+}
+
+
+Or if you want to run it every hour:
+
+$schedule->command('tokens:delete-expired')->hourly();
+
+Step 5: Set up your server’s cron job (if not already done)
+
+Make sure you have this in your server’s crontab so Laravel scheduler runs every minute:
+
+* * * * * cd /path-to-your-project && php artisan schedule:run >> /dev/null 2>&1
+
+
+Summary of what happens:
+
+Laravel runs your command daily/hourly.
+
+Command deletes all tokens expired by 15 days of inactivity.
+
+Expired tokens removed from DB.
+
+auth:sanctum won’t find the token and returns 401 automatically on requests with deleted tokens.
+
+
+| Action                      | Command/Setup                                  | Result                            |
+| --------------------------- | ---------------------------------------------- | --------------------------------- |
+| Test manually once          | `php artisan schedule:run`                     | Runs scheduled tasks immediately  |
+| Run automatically every day | Setup cron running `schedule:run` every minute | Runs your scheduled command daily |
+
+
+
+you're using a cron job or Task Scheduler to run php artisan schedule:run daily, and now you want to temporarily stop or disable that scheduled task.
+
+Here are the options depending on how it's set up:
+
+✅ If you used Windows Task Scheduler
+Option 1: Disable the scheduled task
+
+Open Task Scheduler
+
+Find your task (e.g. Laravel Schedule Run)
+
+Right-click it → Disable
+
+✅ This keeps the task but stops it from running until you enable it again.
+
+Option 2: Delete the task
+
+If you're done with it completely:
+
+Right-click the task
+
+Click Delete
+
