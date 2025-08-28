@@ -12,6 +12,10 @@ use App\Traits\LogsActivity;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Auth\Events\Registered; // <-- Make sure this is imported
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Carbon\Carbon;
+
 class UserController extends Controller
 {
     use AuthorizesRequests, ValidatesRequests, LogsActivity;
@@ -24,95 +28,356 @@ class UserController extends Controller
             'user' => $request->user(), // Laravel gets user from Sanctum token
         ], 200); //ok
     }
-    public function signup(Request $request)
+    // public function signup(Request $request)
+    // {
+    //     // Validate input
+    //     $validator = Validator::make($request->all(), [
+    //         'name' => 'required|string|max:50|min:2',
+    //         // 'email' => 'required|email|unique',
+    //         'email' => 'required|email|unique:users,email', // unique:<table_name>,<column_name>
+    //         // 'password' => 'required|string|min:8|same:confirm_password|regex:/[a-z]/|regex:/[A-Z]/',
+    //         'password' => [
+    //             'required',
+    //             'string',
+    //             'min:8',
+    //             'same:confirm_password',
+    //             'regex:/[a-z]/',      // at least one lowercase letter
+    //             'regex:/[A-Z]/',      // at least one uppercase letter
+    //             'regex:/[0-9]/',      // at least one digit
+    //             'regex:/[@$!%*#?&]/', // at least one special character
+    //         ],
+    //         'confirm_password' => 'required|string|min:6|max:20',
+    //     ], [
+    //         // Custom messages ONLY for password field
+    //         'password.required' => 'Password is required.',
+    //         'password.min' => 'Password must be at least 8 characters.',
+    //         'password.same' => 'Password and Confirm Password must match.',
+    //         'password.regex' => 'Password must include: one uppercase letter, lowercase letter, number, and special character.',
+    //     ]);
+
+    //     // Return errors if validation fails
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Validation Failed',
+    //             'errors'  => $validator->errors(),
+    //         ], 422); // Unprocessable Entity
+    //     }
+
+    //     // Create user
+    //     $user = User::create([
+    //         'name'     => $request->name,
+    //         'email'    => $request->email,
+    //         'password' => Hash::make($request->password), // Use hashing
+    //     ]);
+
+    //     // Fire the Registered event to send verification email
+    //     // event(new Registered($user));
+    //     // Create token for API authentication
+    //     // $token = $user->createToken('register_token')->plainTextToken;
+
+
+    //     //return response
+    //     return response()->json([
+    //         'success' => true,
+    //         'message' => 'User registered successfully. Please verify your email.',
+    //         // 'token' => $token,
+    //         'user' => [
+    //             'user_id' => $user->user_id,
+    //             'name'  => $user->name,
+    //             'email' => $user->email,
+    //         ]
+    //     ], 201); // Created
+    // }
+
+    public function register(Request $request)
     {
-        // Validate input
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:50|min:2',
-            // 'email' => 'required|email|unique',
-            'email' => 'required|email|unique:users,email', // unique:<table_name>,<column_name>
-            // 'password' => 'required|string|min:8|same:confirm_password|regex:/[a-z]/|regex:/[A-Z]/',
+            'name'     => 'required|string|max:50|min:2',
+            'email'    => 'required|email|unique:users,email',
             'password' => [
                 'required',
                 'string',
                 'min:8',
                 'same:confirm_password',
-                'regex:/[a-z]/',      // at least one lowercase letter
-                'regex:/[A-Z]/',      // at least one uppercase letter
-                'regex:/[0-9]/',      // at least one digit
-                'regex:/[@$!%*#?&]/', // at least one special character
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[@$!%*#?&]/',
             ],
             'confirm_password' => 'required|string|min:6|max:20',
-        ], [
-            // Custom messages ONLY for password field
-            'password.required' => 'Password is required.',
-            'password.min' => 'Password must be at least 8 characters.',
-            'password.same' => 'Password and Confirm Password must match.',
-            'password.regex' => 'Password must include: one uppercase letter, lowercase letter, number, and special character.',
-        ]);
-
-        // Return errors if validation fails
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation Failed',
-                'errors'  => $validator->errors(),
-            ], 422); // Unprocessable Entity
-        }
-
-        // Create user
-        $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'password' => Hash::make($request->password), // Use hashing
-        ]);
-
-        // Fire the Registered event to send verification email
-        // event(new Registered($user));
-        // Create token for API authentication
-        // $token = $user->createToken('register_token')->plainTextToken;
-
-
-        //return response
-        return response()->json([
-            'success' => true,
-            'message' => 'User registered successfully. Please verify your email.',
-            // 'token' => $token,
-            'user' => [
-                'user_id' => $user->user_id,
-                'name'  => $user->name,
-                'email' => $user->email,
-            ]
-        ], 201); // Created
-    }
-
-
-    public function login(Request $request)
-    {
-        // Validate input (no 'exists' to avoid info leak)
-        $validator = Validator::make($request->all(), [
-            'email'    => 'required|email|max:100',
-            'password' => 'required|string',
-        ], [
-            'email.required'    => 'Email is required.',
-            'email.email'       => 'Invalid email format.',
-            'password.required' => 'Password is required.',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
-                'errors'  => $validator->errors(),
-            ], 422); // Unprocessable Entity
+                'errors' => $validator->errors(),
+            ], 422);
         }
 
-        // Find user by email
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => Hash::make($request->password),
+            'is_verified' => false, // Add to users table if not already
+        ]);
+
+        // Generate and store OTP
+        $otp = rand(100000, 999999);
+
+        DB::table('user_verifications')->updateOrInsert(
+            ['email' => $user->email],
+            [
+                'otp' => $otp,
+                'expires_at' => now()->addMinutes(5),
+                'created_at' => now()
+            ]
+        );
+
+        // Send OTP via email
+        $subject = 'Your OTP for FOLLOWUP App Registration Verification';
+
+        $htmlMessage = "<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <title>$subject</title>
+</head>
+<body style='font-family: Arial, sans-serif; line-height: 1.6; background-color: #f9f9f9; padding: 20px;'>
+    <div style='max-width: 600px; margin: auto; background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);'>
+        <strong>Dear {$user->name},</strong>
+
+        <p>Thank you for registering with FOLLOWUP.</p>
+
+        <p>Your One-Time Password (OTP) for verifying your email is:</p>
+
+        <h1 style='text-align: center; font-size: 36px; color: #2c3e50;'>$otp</h1>
+
+        <p>This OTP is valid for 5 minutes. Please do not share it with anyone.</p>
+
+        <p>If you did not sign up for an account, you can ignore this email.</p>
+
+        <p>Thank you,</p><br><strong>FOLLOWUP Team</strong>
+    </div>
+</body>
+</html>";
+
+        Mail::html($htmlMessage, function ($mail) use ($user, $subject) {
+            $mail->to($user->email)
+                ->subject($subject);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User registered. Please verify using the OTP sent to your email.',
+        ], 201);
+    }
+
+
+    public function verifyRegisterOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|exists:users,email',
+            'otp'   => 'required|digits:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors'  => $validator->errors()
+            ], 422);
+        }
+
+        $record = DB::table('user_verifications')
+            ->where('email', $request->email)
+            ->where('otp', $request->otp)
+            ->first();
+
+        if (!$record) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid OTP.'
+            ], 400);
+        }
+
+        if (Carbon::now()->greaterThan(Carbon::parse($record->expires_at))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'OTP has expired.'
+            ], 410);
+        }
+
+        // Mark user as verified
+        User::where('email', $request->email)->update([
+            'email_verified_at' => now()
+        ]);
+
+        // Optionally delete OTP
+        DB::table('user_verifications')->where('email', $request->email)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Email verified successfully.'
+        ], 200);
+    }
+
+    public function resendOTP(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
         $user = User::where('email', $request->email)->first();
 
-        // Check user exists & password matches
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            // Generic error to avoid leaking info
+        // Generate new OTP
+        $otp = rand(100000, 999999);
+
+        // Store or update the OTP in user_verifications table
+        DB::table('user_verifications')->updateOrInsert(
+            ['email' => $request->email],
+            [
+                'otp' => $otp,
+                'expires_at' => Carbon::now()->addMinutes(5),
+                'updated_at' => now(),
+                'created_at' => now(), // if new
+            ]
+        );
+
+        // Send email
+        $subject = 'Your OTP for FOLLOWUP App Registration Verification';
+
+        $htmlMessage = "<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <title>$subject</title>
+</head>
+<body style='font-family: Arial, sans-serif; line-height: 1.6; background-color: #f9f9f9; padding: 20px;'>
+    <div style='max-width: 600px; margin: auto; background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);'>
+        <strong>Dear {$user->name},</strong>
+
+        <p>Thank you for registering with FOLLOWUP.</p>
+
+        <p>Your One-Time Password (OTP) for verifying your email is:</p>
+
+        <h1 style='text-align: center; font-size: 36px; color: #2c3e50;'>$otp</h1>
+
+        <p>This OTP is valid for 5 minutes. Please do not share it with anyone.</p>
+
+        <p>If you did not sign up for an account, you can ignore this email.</p>
+
+        <p>Thank you,</p><br><strong>FOLLOWUP Team</strong>
+    </div>
+</body>
+</html>";
+
+        Mail::html($htmlMessage, function ($mail) use ($user, $subject) {
+            $mail->to($user->email)
+                ->subject($subject);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'A new OTP has been sent to your email.',
+        ], 200);
+    }
+
+
+    // public function login(Request $request)
+    // {
+    //     // Validate input (no 'exists' to avoid info leak)
+    //     $validator = Validator::make($request->all(), [
+    //         'email'    => 'required|email|max:100',
+    //         'password' => 'required|string',
+    //     ], [
+    //         'email.required'    => 'Email is required.',
+    //         'email.email'       => 'Invalid email format.',
+    //         'password.required' => 'Password is required.',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Validation failed.',
+    //             'errors'  => $validator->errors(),
+    //         ], 422); // Unprocessable Entity
+    //     }
+
+    //     // Find user by email
+    //     $user = User::where('email', $request->email)->first();
+
+    //     // Check user exists & password matches
+    //     if (!$user || !Hash::check($request->password, $user->password)) {
+    //         // Generic error to avoid leaking info
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Invalid credentials.',
+    //         ], 401);
+    //     }
+
+    //     // Check if email is verified
+    //     // if (!$user->hasVerifiedEmail()) {
+    //     //     return response()->json([
+    //     //         'success' => false,
+    //     //         'message' => 'Please verify your email before logging in.',
+    //     //     ], 403); // Forbidden
+    //     // }
+
+    //     // Create Sanctum token
+    //     // if ($user->role === 'super_admin') {
+    //     //     $token = $user->createToken('super_admin_token', ['delete-followup'])->plainTextToken;   //createToken('TokenName',['Abilities'])
+    //     // } else {
+    //     //     $token = $user->createToken('normal_admin_token', ['view-followup'])->plainTextToken;
+    //     // }
+
+    //     $token = $user->createToken('login_token')->plainTextToken;
+
+    //     // Return success response with token and user data
+    //     return response()->json([
+    //         'success' => true,
+    //         'message' => 'Login successful.',
+    //         'token'   => $token,
+    //         'user'    => [
+    //             'user_id' => $user->user_id,  // custom primary key
+    //             'name'    => $user->name,
+    //             'email'   => $user->email,
+    //         ]
+    //     ], 200);
+    // }
+
+    // //get all users
+    // //header passed Bearer <login_token>
+    // // public function AllUsers()
+    // // {
+    // //     // Fetch all users except password
+    // //     $users = User::select('user_id', 'name', 'email')->get();
+
+    // //     return response()->json([
+    // //         'success' => true,
+    // //         'message' => 'Users fetched successfully',
+    // //         'total'   => $users->count(),
+    // //         'data'    => $users
+    // //     ]);
+    // // }
+
+    // //user by id
+
+    public function login(Request $request)
+    {
+        $credentials = $request->only('email', 'password');
+
+        // Check user exists
+        $user = User::where('email', $request->email)->first();
+        if (!$user) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid credentials.',
@@ -120,23 +385,30 @@ class UserController extends Controller
         }
 
         // Check if email is verified
-        // if (!$user->hasVerifiedEmail()) {
-        //     return response()->json([
-        //         'success' => false,
-        //         'message' => 'Please verify your email before logging in.',
-        //     ], 403); // Forbidden
-        // }
+        if (!$user->email_verified_at) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please verify your email first.',
+            ], 403);
+        }
+
+        // Now check password
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid credentials.',
+            ], 401);
+        }
 
         // Create Sanctum token
-        // if ($user->role === 'super_admin') {
-        //     $token = $user->createToken('super_admin_token', ['delete-followup'])->plainTextToken;   //createToken('TokenName',['Abilities'])
-        // } else {
-        //     $token = $user->createToken('normal_admin_token', ['view-followup'])->plainTextToken;
-        // }
+        //     // if ($user->role === 'super_admin') {
+        //     //     $token = $user->createToken('super_admin_token', ['delete-followup'])->plainTextToken;   //createToken('TokenName',['Abilities'])
+        //     // } else {
+        //     //     $token = $user->createToken('normal_admin_token', ['view-followup'])->plainTextToken;
+        //     // }
 
         $token = $user->createToken('login_token')->plainTextToken;
 
-        // Return success response with token and user data
         return response()->json([
             'success' => true,
             'message' => 'Login successful.',
@@ -149,22 +421,6 @@ class UserController extends Controller
         ], 200);
     }
 
-    //get all users
-    //header passed Bearer <login_token>
-    // public function AllUsers()
-    // {
-    //     // Fetch all users except password
-    //     $users = User::select('user_id', 'name', 'email')->get();
-
-    //     return response()->json([
-    //         'success' => true,
-    //         'message' => 'Users fetched successfully',
-    //         'total'   => $users->count(),
-    //         'data'    => $users
-    //     ]);
-    // }
-
-    //user by id
     public function getUserById($user_id)
     {
         $user = User::find($user_id);

@@ -12,18 +12,21 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->bigIncrements('user_id'); // primary key, BIGINT UNSIGNED
-            $table->string('name', 50); // required
-            $table->string('email', 100)->unique(); // required + unique
-            $table->string('password', 255); // required
+            $table->bigIncrements('user_id'); // Primary key
+            $table->string('name', 50);
+            $table->string('email', 100)->unique();
+            $table->string('password', 255);
 
-            // ✅ Email verification timestamp
             $table->timestamp('email_verified_at')->nullable();
+            // 🆕 OTP Verification Fields
+            // $table->boolean('is_verified')->default(false);
+            // $table->string('otp')->nullable();
+            // $table->timestamp('otp_expires_at')->nullable();
 
-            // ✅ Token for "remember me" sessions
-            $table->rememberToken();
+            // Remove these if not using:
+            // $table->timestamp('email_verified_at')->nullable();
+            // $table->rememberToken();
 
-            // ✅ Created_at and updated_at timestamps
             $table->timestamps();
         });
     }

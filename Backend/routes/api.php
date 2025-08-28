@@ -11,6 +11,8 @@ use Illuminate\Auth\Events\Verified;
 use App\Models\User;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
+use Faker\Guesser\Name;
+
 // use App\Http\Controllers\Auth\ResetPasswordController;
 /*
 |--------------------------------------------------------------------------
@@ -27,8 +29,13 @@ use App\Http\Controllers\Auth\ForgotPasswordController;
 //     return $request->user();
 // });
 
-Route::post('/signup', [UserController::class, 'SignUp'])->name('signup');
+// Route::post('/signup', [UserController::class, 'SignUp'])->name('signup');
+// Route::post('/login', [UserController::class, 'Login'])->name('login');
+Route::post('/register', [UserController::class, 'register'])->name('register');
+Route::post('/verify-register-otp', [UserController::class, 'verifyRegisterOtp'])->name('verifyRegisterOtp');
+Route::post('/resend-otp', [UserController::class, 'resendOTP'])->name('resendotp');
 Route::post('/login', [UserController::class, 'Login'])->name('login');
+
 
 // // 📧 Email Verification Routes
 
