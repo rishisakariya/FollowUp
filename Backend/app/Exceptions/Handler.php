@@ -4,6 +4,8 @@ namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -53,5 +55,16 @@ class Handler extends ExceptionHandler
             'success' => false,
             'message' => 'Authorization token missing or invalid. Please log in.',
         ], 401);
+    }
+    public function render($request, Throwable $exception)
+    {
+        if ($exception instanceof ThrottleRequestsException) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Too many attempts. Please slow down and try again later after 2 minutes.'
+            ], Response::HTTP_TOO_MANY_REQUESTS);
+        }
+
+        return parent::render($request, $exception);
     }
 }
