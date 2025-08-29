@@ -87,7 +87,7 @@ Route::post('/login', [UserController::class, 'Login'])->name('login');
 // ✅ Protected Routes (only for authenticated & verified users)
 // Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 // Route::middleware(['check.token_expiration', 'auth:sanctum'])->group(function () {
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin|user'])->group(function () {
     Route::get('/profile', [UserController::class, 'profile'])->name('profile');
     // Route::get('/users', [UserController::class, 'AllUsers']);
     Route::get('/user/{user_id}', [UserController::class, 'getUserById'])->name('userbyid');

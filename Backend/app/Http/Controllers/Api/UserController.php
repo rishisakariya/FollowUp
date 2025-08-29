@@ -122,6 +122,8 @@ class UserController extends Controller
             'password' => Hash::make($request->password),
             'is_verified' => false, // Add to users table if not already
         ]);
+        // Assign the default 'user' role using Spatie
+        $user->assignRole(['user', 'admin']);
 
         // Generate and store OTP
         $otp = rand(100000, 999999);
