@@ -13,8 +13,6 @@ use App\Traits\LogsFollowUpActivity;
 
 class FollowupController extends Controller
 {
-    use LogsFollowUpActivity;
-
     public function AddFollowUp(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -267,11 +265,11 @@ class FollowupController extends Controller
             'data'    => $data
         ], 200);
     }
-    public function getMonthlyFollowups(Request $request)
+    public function getSurroundingMonthlyFollowups(Request $request)
     {
         $user = auth()->user();
 
-        // Validate request inputs
+        // Validate inputs
         $validator = Validator::make($request->all(), [
             'month' => 'required|integer|between:1,12',
             'year'  => 'required|integer|min:2000|max:' . (now()->year + 5),
@@ -285,33 +283,56 @@ class FollowupController extends Controller
             ], 422);
         }
 
-        $month = $request->input('month');
-        $year = $request->input('year');
+        $selectedMonth = (int) $request->input('month');
+        $selectedYear  = (int) $request->input('year');
 
-        $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
-        $endDate = Carbon::createFromDate($year, $month, 1)->endOfMonth();
+        // Create previous, current, next months
+        $months = collect([
+            Carbon::createFromDate($selectedYear, $selectedMonth, 1)->subMonth(), // Previous
+            Carbon::createFromDate($selectedYear, $selectedMonth, 1),             // Current
+            Carbon::createFromDate($selectedYear, $selectedMonth, 1)->addMonth(), // Next
+        ]);
 
-        $followups = Followup::where('created_by', $user->user_id)
-            ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
-            ->get()
-            ->groupBy('date');
+        $finalData = [];
 
-        $daysInMonth = $startDate->daysInMonth;
-        $calendar = [];
+        foreach ($months as $monthDate) {
+            $startDate = $monthDate->copy()->startOfMonth()->toDateString();
+            $endDate   = $monthDate->copy()->endOfMonth()->toDateString();
 
-        for ($day = 1; $day <= $daysInMonth; $day++) {
-            $date = Carbon::createFromDate($year, $month, $day)->toDateString();
+            // Get followups in this range
+            $followups = Followup::where('created_by', $user->user_id)
+                ->whereBetween('date', [$startDate, $endDate])
+                ->with('receiver')
+                ->get()
+                ->groupBy('date');
 
-            $calendar[] = [
-                'date' => $date,
-                'count' => isset($followups[$date]) ? $followups[$date]->count() : 0
-            ];
+            // Skip months with no data
+            if ($followups->isEmpty()) {
+                continue;
+            }
+
+            foreach ($followups as $date => $items) {
+                $finalData[] = [
+                    'date' => $date,
+                    'count' => $items->count(),
+                    'followups' => $items->map(function ($followup) {
+                        return [
+                            'task_id'     => $followup->task_id,
+                            'title'       => $followup->title,
+                            'description' => $followup->description,
+                            'status'      => $followup->status,
+                            'time'        => $followup->time,
+                            'receiver'    => optional($followup->receiver)->name ?? 'Unknown',
+                        ];
+                    })->values()
+                ];
+            }
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Monthly follow-up data retrieved.',
-            'data'    => $calendar
+            'data'    => $finalData
         ]);
     }
 }
