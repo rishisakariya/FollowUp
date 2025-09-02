@@ -8,10 +8,14 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('password_resets', function (Blueprint $table) {
+            $table->id();
             $table->string('email')->index();
             $table->string('otp');
+            $table->timestamp('verified_at')->nullable();
             $table->timestamp('created_at')->nullable();
             $table->timestamp('expires_at')->nullable();
+
+            $table->foreign('email')->references('email')->on('users')->onDelete('cascade');
         });
     }
 

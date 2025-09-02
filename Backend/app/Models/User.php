@@ -22,9 +22,11 @@ class User extends Authenticatable
     public $timestamps = true;
 
     protected $fillable = [
+        //user_id
         'name',
         'email',
         'password',
+        'updated_by'
     ];
 
     protected $hidden = [
@@ -36,4 +38,16 @@ class User extends Authenticatable
     // protected $casts = [
     //     'email_verified_at' => 'datetime',
     // ];
+
+    // One-to-Many: A user can create many receivers
+    public function receivers()
+    {
+        return $this->hasMany(Receiver::class, 'created_by'); // FK in receivers table
+    }
+
+    // One-to-Many: A user can create many follow-ups
+    public function followups()
+    {
+        return $this->hasMany(FollowUp::class, 'created_by'); // FK in follow_ups table
+    }
 }

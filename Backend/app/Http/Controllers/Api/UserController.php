@@ -8,24 +8,30 @@ use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\User;
-use App\Traits\LogsActivity;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Auth\Events\Registered; // <-- Make sure this is imported
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Carbon\Carbon;
+use App\Models\UserVerification;
+use OwenIt\Auditing\Models\Audit;
+use App\Traits\AuditableActionLogger;
 
 class UserController extends Controller
 {
-    use AuthorizesRequests, ValidatesRequests, LogsActivity;
+    use AuthorizesRequests, ValidatesRequests;
     public function profile(Request $request)
     {
+        $user = $request->user()->load(['followUps', 'receivers']);
+        $user2 = User::with(['followUps'])->get();
         // Return authenticated user details
         return response()->json([
             'success' => true,
             'message' => 'User profile fetched successfully.',
-            'user' => $request->user(), // Laravel gets user from Sanctum token
+            // 'user' => $request->user(), // Laravel gets user from Sanctum token
+            'userdata' => $user
+            // 'userdata' => $request->user()->load(['receivers', 'followUps']),
         ], 200); //ok
     }
     // public function signup(Request $request)
@@ -120,20 +126,19 @@ class UserController extends Controller
             'name'     => $request->name,
             'email'    => $request->email,
             'password' => Hash::make($request->password),
-            'is_verified' => false, // Add to users table if not already
+            // 'is_verified' => false, // Add to users table if not already
         ]);
         // Assign the default 'user' role using Spatie
-        $user->assignRole(['user', 'admin']);
+        // $user->assignRole(['user', 'admin']);
 
         // Generate and store OTP
         $otp = rand(100000, 999999);
 
-        DB::table('user_verifications')->updateOrInsert(
-            ['email' => $user->email],
+        UserVerification::updateOrCreate(
+            ['verify_user_id' => $user->user_id],
             [
                 'otp' => $otp,
                 'expires_at' => now()->addMinutes(5),
-                'created_at' => now()
             ]
         );
 
@@ -176,7 +181,6 @@ class UserController extends Controller
         ], 201);
     }
 
-
     public function verifyRegisterOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -188,42 +192,53 @@ class UserController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
-                'errors'  => $validator->errors()
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
-        $record = DB::table('user_verifications')
-            ->where('email', $request->email)
+        // Get the user by email
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        }
+
+        // Get the verification record using verify_user_id
+        $record = UserVerification::where('verify_user_id', $user->user_id)
             ->where('otp', $request->otp)
             ->first();
 
         if (!$record) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid OTP.'
+                'message' => 'Invalid OTP.',
             ], 400);
         }
 
-        if (Carbon::now()->greaterThan(Carbon::parse($record->expires_at))) {
+        if (Carbon::now()->greaterThan($record->expires_at)) {
             return response()->json([
                 'success' => false,
-                'message' => 'OTP has expired.'
+                'message' => 'OTP has expired.',
             ], 410);
         }
 
         // Mark user as verified
-        User::where('email', $request->email)->update([
-            'email_verified_at' => now()
-        ]);
+        $user->email_verified_at = true;
+        $user->email_verified_at = now();
+        $user->save();
 
-        // Optionally delete OTP
-        DB::table('user_verifications')->where('email', $request->email)->delete();
+        // Optionally delete the verification record
+        $record->delete();
 
         return response()->json([
             'success' => true,
-            'message' => 'Email verified successfully.'
+            'message' => 'Email verified successfully.',
         ], 200);
     }
+
 
     public function resendOTP(Request $request)
     {
@@ -235,22 +250,29 @@ class UserController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
+
+        // Get the user by email
         $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        }
 
         // Generate new OTP
         $otp = rand(100000, 999999);
 
-        // Store or update the OTP in user_verifications table
-        DB::table('user_verifications')->updateOrInsert(
-            ['email' => $request->email],
+        // Store or update the OTP in user_verifications using verify_user_id
+        UserVerification::updateOrCreate(
+            ['verify_user_id' => $user->user_id],
             [
                 'otp' => $otp,
-                'expires_at' => Carbon::now()->addMinutes(5),
-                'updated_at' => now(),
-                'created_at' => now(), // if new
+                'expires_at' => now()->addMinutes(5),
             ]
         );
 
@@ -292,6 +314,7 @@ class UserController extends Controller
             'message' => 'A new OTP has been sent to your email.',
         ], 200);
     }
+
 
 
     // public function login(Request $request)
@@ -411,6 +434,7 @@ class UserController extends Controller
 
         $token = $user->createToken('login_token')->plainTextToken;
 
+
         return response()->json([
             'success' => true,
             'message' => 'Login successful.',
@@ -441,7 +465,6 @@ class UserController extends Controller
                 'message' => 'User not found.',
             ], 404); //Not Found
         }
-
         // Success response
         return response()->json([
             'success' => true,
@@ -519,7 +542,8 @@ class UserController extends Controller
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
         }
-
+        // Track which user updated this record
+        $user->updated_by = auth()->id();  // or auth()->user()->user_id if your PK is user_id
         $user->save();
 
         return response()->json([
