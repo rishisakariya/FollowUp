@@ -13,10 +13,15 @@ return new class extends Migration
     {
         Schema::create('user_verifications', function (Blueprint $table) {
             $table->id();
-            $table->string('email')->index();
+            $table->unsignedBigInteger('verify_user_id')->index();
             $table->string('otp', 6);
             $table->timestamp('expires_at');
             $table->timestamps();
+
+            $table->foreign('verify_user_id')
+                ->references('user_id')
+                ->on('users')
+                ->onDelete('cascade');
         });
     }
 
